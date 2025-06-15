@@ -1,1 +1,147 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+from PIL import Image, ImageTk
+import sqlite3
 
+# Database setup
+conn = sqlite3.connect('gym_members.db')
+cursor = conn.cursor()
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS members (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        age INTEGER,
+        gender TEXT,
+        contact TEXT,
+        plan TEXT
+    )
+''')
+conn.commit()
+
+# Functions
+def add_member():
+    name = name_entry.get()
+    age = age_entry.get()
+    gender = gender_var.get()
+    contact = contact_entry.get()
+    plan = plan_var.get()
+
+    if name and age and gender and contact and plan:
+        cursor.execute('INSERT INTO members (name, age, gender, contact, plan) VALUES (?, ?, ?, ?, ?)',
+                       (name, age, gender, contact, plan))
+        conn.commit()
+        messagebox.showinfo("Success", "Member added successfully!")
+        clear_form()
+        view_members()
+    else:
+        messagebox.showwarning("Missing Fields", "Please fill all fields.")
+
+def view_members():
+    records = cursor.execute("SELECT * FROM members").fetchall()
+    member_list.delete(*member_list.get_children())
+    for row in records:
+        member_list.insert("", "end", values=row)
+
+def update_member():
+    selected = member_list.focus()
+    if not selected:
+        messagebox.showwarning("Select Member", "Please select a member to update.")
+        return
+
+    member_id = member_list.item(selected)['values'][0]
+    cursor.execute('UPDATE members SET name=?, age=?, gender=?, contact=?, plan=? WHERE id=?',
+                   (name_entry.get(), age_entry.get(), gender_var.get(),
+                    contact_entry.get(), plan_var.get(), member_id))
+    conn.commit()
+    messagebox.showinfo("Updated", "Member info updated.")
+    clear_form()
+    view_members()
+
+def delete_member():
+    selected = member_list.focus()
+    if not selected:
+        messagebox.showwarning("Select Member", "Please select a member to delete.")
+        return
+
+    member_id = member_list.item(selected)['values'][0]
+    cursor.execute('DELETE FROM members WHERE id=?', (member_id,))
+    conn.commit()
+    messagebox.showinfo("Deleted", "Member deleted.")
+    view_members()
+
+def clear_form():
+    name_entry.delete(0, tk.END)
+    age_entry.delete(0, tk.END)
+    contact_entry.delete(0, tk.END)
+    gender_var.set("")
+    plan_var.set("")
+
+def on_member_select(event):
+    selected = member_list.focus()
+    if selected:
+        values = member_list.item(selected)['values']
+        name_entry.delete(0, tk.END)
+        name_entry.insert(0, values[1])
+        age_entry.delete(0, tk.END)
+        age_entry.insert(0, values[2])
+        gender_var.set(values[3])
+        contact_entry.delete(0, tk.END)
+        contact_entry.insert(0, values[4])
+        plan_var.set(values[5])
+
+# GUI setup
+root = tk.Tk()
+root.title("Gym Membership Management")
+root.geometry("750x550")
+
+# Load background image
+try:
+    bg_image = Image.open("gymbg.jpg")
+    bg_image = bg_image.resize((750, 550), Image.Resampling.LANCZOS)
+    bg_photo = ImageTk.PhotoImage(bg_image)
+    canvas = tk.Canvas(root, width=750, height=550)
+    canvas.pack(fill="both", expand=True)
+    canvas.create_image(0, 0, image=bg_photo, anchor="nw")
+except Exception as e:
+    print("Background image not found or error:", e)
+    canvas = tk.Canvas(root, width=750, height=550, bg="black")
+    canvas.pack(fill="both", expand=True)
+
+# Place widgets directly on canvas
+def place_widget(widget, x, y):
+    canvas.create_window(x, y, window=widget, anchor="nw")
+
+# Form Fields
+label_font = ("Arial", 10, "bold")
+entry_width = 30
+
+place_widget(tk.Label(root, text="Name", font=label_font, bg="#ffffff"), 50, 30)
+name_entry = tk.Entry(root, width=entry_width)
+place_widget(name_entry, 150, 30)
+
+place_widget(tk.Label(root, text="Age", font=label_font, bg="#ffffff"), 50, 70)
+age_entry = tk.Entry(root, width=entry_width)
+place_widget(age_entry, 150, 70)
+
+place_widget(tk.Label(root, text="Gender", font=label_font, bg="#ffffff"), 50, 110)
+gender_var = tk.StringVar()
+gender_cb = ttk.Combobox(root, textvariable=gender_var, values=["Male", "Female", "Other"], width=27)
+place_widget(gender_cb, 150, 110)
+
+place_widget(tk.Label(root, text="Contact", font=label_font, bg="#ffffff"), 50, 150)
+contact_entry = tk.Entry(root, width=entry_width)
+place_widget(contact_entry, 150, 150)
+
+place_widget(tk.Label(root, text="Plan", font=label_font, bg="#ffffff"), 50, 190)
+plan_var = tk.StringVar()
+plan_cb = ttk.Combobox(root, textvariable=plan_var, values=["Monthly", "Quarterly", "Yearly"], width=27)
+place_widget(plan_cb, 150, 190)
+
+# Buttons
+place_widget(tk.Button(root, text="Add", width=10, command=add_member), 50, 240)
+place_widget(tk.Button(root, text="Update", width=10, command=update_member), 150, 240)
+place_widget(tk.Button(root, text="Delete", width=10, command=delete_member), 250, 240)
+place_widget(tk.Button(root, text="Clear", width=10, command=clear_form), 350, 240)
+
+
+root.mainloop()
